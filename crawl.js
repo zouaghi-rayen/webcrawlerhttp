@@ -37,7 +37,61 @@ function getUrlsFromHTML(htmlBody, baseURL){
     return urls;
 }
 
+async function crawlPage(baseURL, currentURL, pages) {
+    console.log(`Crawling ${currentURL}`);
+
+    const baseURLObjt = new URL(baseURL);
+    const currentURLObjt = new URL(currentURL);
+
+    if (baseURLObjt.hostname !== currentURLObjt.hostname){
+        console.log(`different domain, skipping crawl of ${currentURL}`);
+        return pages;
+    }
+
+    const normalizedCurrentURL = normalizeURL(currentURL);
+    if (pages[normalizedCurrentURL] > 0) {
+        pages[normalizedCurrentURL] ++; 
+        return pages;
+    }
+
+    pages[normalizedCurrentURL] = 1;
+
+    console.log(`actively crawling ${currentURL}`);
+    
+    try {
+    const response = await fetch(currentURL, {
+    method : "GET",
+    mode: "cors"
+    });
+    
+    if (response.stats > 399){
+        console.log(`error in fetch with status code: ${response.status} on page ${currentURL}`);
+    return pages;
+    }
+
+    if (!response.headers.get("content-type").includes("text/html")){
+        console.log(`non html response, content-type: ${response.headers.get("content-type")} on page ${currentURL}`);
+    return pages;
+    }
+
+    const htmlBody = await response.text();
+    nextUrls = getUrlsFromHTML(htmlBody, baseURL);
+
+    for (const nextURL of nextUrls){
+        pages = await crawlPage(baseURL, nextURL, pages);
+    }
+
+    } catch (err) {
+    console.log(`error in fetch: ${err.message}`);
+    }
+
+    return pages;
+
+}
+
+
 module.exports = {
     normalizeURL,
-    getUrlsFromHTML
+    getUrlsFromHTML,
+    crawlPage
 }
